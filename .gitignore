@@ -153,3 +153,4 @@ gen
 src/
 
 test.py
+test_imgs/*

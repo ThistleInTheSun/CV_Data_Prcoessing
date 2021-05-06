@@ -3,7 +3,12 @@
 # @Time    : 2021/4/29
 # @Author  : xq
 
-from get_cls_from_name import get_r_cls, get_w_cls
+from tqdm import tqdm
+
+from get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
+from reader.reader import ConcatReader
+from writer.writer import ConcatWriter
+from processor.draw_processor import EmptyProcess
 
 
 class DataTransforms(object):
@@ -14,7 +19,7 @@ class DataTransforms(object):
                  ):
         self.reader = self._get_reader(reader_method, reader_path)
         self.writer = self._get_writer(writer_method, writer_path)
-        self.processor = processor
+        self.processor = self._get_processor(processor)
 
     def _get_reader(self, reader_method, reader_path):
         readers = []
@@ -26,25 +31,35 @@ class DataTransforms(object):
 
     def _get_writer(self, writer_method, writer_path):
         writers = []
-        if "img" in writer_method or "image" in writer_method:
-            writers.append(ImageWriter)
-        if "video" in writer_method:
-            writers.append(VideoWriter)
+        for wm, wp in zip(writer_method, writer_path):
+            if isinstance(wm, str):
+                wm = get_w_cls(wm)
+            writers.append(wm(wp))
         return ConcatWriter(writers)
 
+    def _get_processor(self, processor):
+        if isinstance(processor, str):
+            processor = get_p_cls(processor)
+        if processor is None:
+            processor = EmptyProcess
+        return processor()
+
     def apply(self):
-        content = self.reader.read()
-        content = self.processor.process(content)
-        self.writer.write(content)
+        for content in tqdm(self.reader):
+            content = self.processor.process(content)
+            self.writer.write(content)
 
 
 if __name__ == '__main__':
-    transforms = DataTransforms(reader_method=("video", "xml"),
-                                reader_path=("path1", "path2"),
-                                writer_method=("image", "json"),
-                                writer_path=("path1", "path2"),
+    # transforms = DataTransforms(reader_method=("image", "json"),
+    #                             reader_path=("test_imgs/inputs/img_and_json/", "test_imgs/inputs/img_and_json/"),
+    #                             writer_method=("image", "xml"),
+    #                             writer_path=("test_imgs/outputs/img_and_xml/", "test_imgs/outputs/img_and_xml/"),
+    #                             )
+    transforms = DataTransforms(reader_method=("image", "xml",),
+                                reader_path=("test_imgs/inputs/img_or_xml/img/", "test_imgs/inputs/img_or_xml/xml/",),
+                                writer_method=("image",),
+                                writer_path=("test_imgs/outputs/img_xml_2_img_vis/",),
+                                processor="draw",
                                 )
-
-
-
-
+    transforms.apply()

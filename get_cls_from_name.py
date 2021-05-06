@@ -15,7 +15,6 @@ def get_cls(obj_name, r_or_w, *args, **kwargs):
     """
     obj_name = obj_name + "_" + r_or_w
     model_filename = ".".join([r_or_w, obj_name])
-    print(model_filename)
     modellib = importlib.import_module(model_filename)
     model = None
     target_obj_name = obj_name.replace('_', '')
@@ -38,6 +37,10 @@ def get_r_cls(*args, **kwargs):
 
 def get_w_cls(*args, **kwargs):
     return get_cls(r_or_w="writer", *args, **kwargs)
+
+
+def get_p_cls(*args, **kwargs):
+    return get_cls(r_or_w="processor", *args, **kwargs)
 
 
 if __name__ == '__main__':
