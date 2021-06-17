@@ -14,8 +14,7 @@ def get_cls(obj_name, r_or_w, *args, **kwargs):
     and it is case-insensitive.
     """
     obj_name = obj_name + "_" + r_or_w
-    model_filename = ".".join([r_or_w, obj_name])
-    modellib = importlib.import_module(model_filename)
+    modellib = importlib.import_module(r_or_w)
     model = None
     target_obj_name = obj_name.replace('_', '')
     for name, cls in modellib.__dict__.items():
@@ -25,7 +24,7 @@ def get_cls(obj_name, r_or_w, *args, **kwargs):
 
     if model is None:
         print("In %s.py, there should be a subclass of BaseModel with class name that matches %s in lowercase."
-              % (model_filename, target_obj_name))
+              % (modellib, target_obj_name))
         exit(0)
 
     return model

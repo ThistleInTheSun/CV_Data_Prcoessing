@@ -5,10 +5,20 @@
 
 from tqdm import tqdm
 
-from get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
-from reader.reader import ConcatReader
-from writer.writer import ConcatWriter
-from processor.draw_processor import EmptyProcess
+from data_transforms.get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
+from data_transforms.reader.reader import ConcatReader
+from data_transforms.writer.writer import ConcatWriter
+from data_transforms.processor.processor import EmptyProcess
+
+'''
+content:
+    img:
+    info:
+        imageName: os.path.split(json_cont["imagePath"])[-1]
+        imageWidth: json_cont["imageWidth"]
+        imageHeight: json_cont["imageHeight"]
+        imageDepth: 
+'''
 
 
 class DataTransforms(object):
@@ -23,6 +33,10 @@ class DataTransforms(object):
 
     def _get_reader(self, reader_method, reader_path):
         readers = []
+        if not isinstance(reader_method, (list, tuple)):
+            reader_method = (reader_method,)
+        if not isinstance(reader_path, (list, tuple)):
+            reader_path = (reader_path,)
         for rm, rp in zip(reader_method, reader_path):
             if isinstance(rm, str):
                 rm = get_r_cls(rm)
@@ -31,6 +45,10 @@ class DataTransforms(object):
 
     def _get_writer(self, writer_method, writer_path):
         writers = []
+        if not isinstance(writer_method, (list, tuple)):
+            writer_method = (writer_method,)
+        if not isinstance(writer_path, (list, tuple)):
+            writer_path = (writer_path,)
         for wm, wp in zip(writer_method, writer_path):
             if isinstance(wm, str):
                 wm = get_w_cls(wm)
@@ -51,15 +69,10 @@ class DataTransforms(object):
 
 
 if __name__ == '__main__':
-    # transforms = DataTransforms(reader_method=("image", "json"),
-    #                             reader_path=("test_imgs/inputs/img_and_json/", "test_imgs/inputs/img_and_json/"),
-    #                             writer_method=("image", "xml"),
-    #                             writer_path=("test_imgs/outputs/img_and_xml/", "test_imgs/outputs/img_and_xml/"),
-    #                             )
-    transforms = DataTransforms(reader_method=("image", "xml",),
-                                reader_path=("test_imgs/inputs/img_or_xml/img/", "test_imgs/inputs/img_or_xml/xml/",),
-                                writer_method=("image",),
-                                writer_path=("test_imgs/outputs/img_xml_2_img_vis/",),
-                                processor="draw",
+    transforms = DataTransforms(reader_method="image",
+                                reader_path="test_imgs/inputs/img_or_xml/img/",
+                                writer_method="image",
+                                writer_path="test_imgs/outputs/img_xml_2_img_vis/",
+                                processor="jpg2png",
                                 )
     transforms.apply()

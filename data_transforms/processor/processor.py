@@ -1,22 +1,21 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# @Time    : 2021/5/6
-# @Author  : xq
+import os
 
 import cv2
 import numpy as np
 
-from PIL import Image
-from ivkcore import visualize
+
+class Processor(object):
+    def process(self, content):
+        raise NotImplementedError
 
 
-class EmptyProcess(object):
+class EmptyProcess(Processor):
     @staticmethod
     def process(x):
         return x
 
 
-class DrawProcessor(object):
+class DrawProcessor(Processor):
     def __init__(self, color=(0, 0, 255), thickness=2, area_type="box"):
         self.thickness = thickness
         self.area_type = area_type
@@ -59,4 +58,14 @@ class DrawProcessor(object):
             self.join_label(label)
             self.draw(img, points, label)
         content["image"] = img
+        return content
+
+
+class Jpg2PngProcessor(Processor):
+    def process(self, content):
+        img_name = content["info"]["imageName"]
+        prefix, suffix = os.path.splitext(img_name)
+        if suffix == ".jpg":
+            img_name = prefix + ".png"
+        content["info"]["imageName"] = img_name
         return content
