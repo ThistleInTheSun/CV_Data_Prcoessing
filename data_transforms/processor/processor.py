@@ -3,6 +3,9 @@ import os
 import cv2
 import numpy as np
 
+__all__ = ["Processor", "EmptyProcess", "DrawProcessor", "Img2JpgProcessor",
+           "Img2PngProcessor", "Img2BmpProcessor", "Anno2MaskProcessor"]
+
 
 class Processor(object):
     def process(self, content):
@@ -16,7 +19,7 @@ class EmptyProcess(Processor):
 
 
 class DrawProcessor(Processor):
-    def __init__(self, color=(0, 0, 255), thickness=2, area_type="box"):
+    def __init__(self, thickness=2, area_type="box"):
         self.thickness = thickness
         self.area_type = area_type
         self.color_map = {0: (0, 0, 255),
@@ -39,11 +42,6 @@ class DrawProcessor(Processor):
                           color=color, thickness=self.thickness)
         img = cv2.putText(img, label, tuple(points[:2]), cv2.FONT_HERSHEY_COMPLEX,
                           fontScale=1, color=color, thickness=self.thickness)
-        # pil_img = Image.fromarray(img)
-        # visualize.draw_texts(pil_img, [points[:2]], [label], color="red", back_color=(0, 0, 255),
-        #                      font_size=24,
-        #                      position="manu", offset=(0, -24 - 10))
-        # img = np.asarray(pil_img)
         return img
 
     def join_label(self, label):
@@ -61,11 +59,63 @@ class DrawProcessor(Processor):
         return content
 
 
-class Jpg2PngProcessor(Processor):
+class Img2JpgProcessor(Processor):
     def process(self, content):
         img_name = content["info"]["imageName"]
         prefix, suffix = os.path.splitext(img_name)
-        if suffix == ".jpg":
-            img_name = prefix + ".png"
+        img_name = prefix + ".jpg"
         content["info"]["imageName"] = img_name
+        return content
+
+
+class Img2PngProcessor(Processor):
+    def process(self, content):
+        img_name = content["info"]["imageName"]
+        prefix, suffix = os.path.splitext(img_name)
+        img_name = prefix + ".png"
+        content["info"]["imageName"] = img_name
+        return content
+
+
+class Img2BmpProcessor(Processor):
+    def process(self, content):
+        img_name = content["info"]["imageName"]
+        prefix, suffix = os.path.splitext(img_name)
+        img_name = prefix + ".bmp"
+        content["info"]["imageName"] = img_name
+        return content
+
+
+class Anno2MaskProcessor(Processor):
+    def __init__(self, label_val_dict=None, is_show=False, img_type=None):
+        self.label_val_dict = label_val_dict if label_val_dict else {}
+        self.is_show = is_show
+        self.img_type = img_type
+
+    def process(self, content):
+        if "shapes" not in content["info"]:
+            raise ValueError("No annotation file to draw mask!")
+        img_name = content["info"]["imageName"]
+        prefix, suffix = os.path.splitext(img_name)
+        img_name = prefix + ".png"
+        content["info"]["imageName"] = img_name
+
+        mask = np.zeros(content["image"].shape[:2])
+        shapes = content["info"]["shapes"]
+        for shape in shapes:
+            lable = shape["label"]
+            if lable not in self.label_val_dict:
+                self.label_val_dict[lable] = len(self.label_val_dict)
+                print("new label: {} -> {}".format(lable, self.label_val_dict[lable]))
+            points = shape["points"]
+            if len(points) == 4 and isinstance(points[0], int):
+                pt1 = tuple(points[:2])
+                pt2 = tuple(points[2:4])
+                mask = cv2.rectangle(img=mask, pt1=pt1, pt2=pt2,
+                                     color=self.label_val_dict[lable], thickness=-1)
+            else:
+                points = np.int32([points])
+                mask = cv2.polylines(mask, points, isClosed=True,
+                                     color=self.label_val_dict[lable])
+        content["img"] = mask
         return content
