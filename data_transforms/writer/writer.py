@@ -12,11 +12,26 @@ T = TypeVar('T')
 
 
 class Writer(Generic[T_co]):
-    def __getitem__(self, index) -> T_co:
-        raise NotImplementedError
+    def __init__(self, path):
+        self.path = path
+
+    @property
+    def path(self):
+        return self._path
+
+    @path.setter
+    def path(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        elif os.listdir(path):
+            warn("Writer warning: {} is not empty!".format(path))
+        self._path = path
 
     def __add__(self, other: 'Writer[T_co]') -> 'ConcatWriter[T_co]':
         return ConcatWriter([self, other])
+
+    def write(self, content):
+        raise NotImplementedError
 
 
 class ConcatWriter(object):
@@ -31,59 +46,22 @@ class ConcatWriter(object):
 
     def write(self, content):
         for w in self.writers:
-            w_name = w.__class__.__name__
             w.write(content)
         return content
 
 
 class ImageWriter(Writer):
-    """Writer Class.
-
-    Usage:
-    1:
-        writer = Writer("Your_target_directory")
-        writer.save(img, filename)
-        writer.close()
-    2:
-        with Writer("Your_target_directory") as writer:
-            writer.save(img, filename)
-    """
-
-    def __init__(self, directory: Text, suffix=None, *args, **kwargs):
-        """Init
-
-        :param directory:
-        :param max_size: Max size of queue.
-        :param _:
-        :param timeout:
-        :param kwargs:
-        """
-        super().__init__()
-        self.directory = directory
-        self.suffix = suffix
+    def __init__(self, path: Text, *args, **kwargs):
+        super().__init__(path)
         self.__to_close = False
-
-    @property
-    def directory(self):
-        return self._directory
-
-    @directory.setter
-    def directory(self, directory):
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            # warn("Writer warning: {} is not existed, created.".format(directory))
-        elif os.listdir(directory):
-            warn("Writer warning: {} is not empty!".format(directory))
-        # os.makedirs(directory, exist_ok=True)
-        self._directory = directory
 
     def __enter__(self):
         return self
 
     def write(self, content):
-        filename = content["info"]["imageName"]
+        name = content["info"]["imageName"]
         img = content["image"]
-        cv2.imwrite(os.path.join(self.directory, filename), img)
+        cv2.imwrite(os.path.join(self.path, name), img)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
@@ -94,7 +72,24 @@ class ImageWriter(Writer):
 
 
 class VideoWriter(Writer):
-    pass
+    def __init__(self, path: Text, *args, **kwargs):
+        super().__init__(path)
+        self.__to_close = False
+
+    def __enter__(self):
+        return self
+
+    def write(self, content):
+        name = content["info"]["imageName"]
+        img = content["image"]
+        cv2.imwrite(os.path.join(self.path, name), img)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return True
+
+    def close(self):
+        self.__to_close = True
 
 
 class JsonWriter(Writer):
