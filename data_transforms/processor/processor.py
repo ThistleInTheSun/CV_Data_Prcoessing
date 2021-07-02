@@ -119,3 +119,20 @@ class Anno2MaskProcessor(Processor):
                                      color=self.label_val_dict[lable])
         content["img"] = mask
         return content
+
+
+class CropProcessor(Processor):
+    def __init__(self, x_min, y_min, x_max, y_max):
+        self.x_min = x_min
+        self.y_min = y_min
+        self.x_max = x_max
+        self.y_max = y_max
+
+    def process(self, content):
+        img = content["image"]
+        sml_img = img[self.y_min, self.y_max, self.x_min: self.x_max]
+        h, w = sml_img.shape[:2]
+        content["image"] = sml_img
+        content["info"]["imageWidth"] = w
+        content["info"]["imageHeight"] = h
+        return content
