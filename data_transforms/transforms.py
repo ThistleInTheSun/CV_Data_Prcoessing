@@ -19,8 +19,17 @@ content:
         imageHeight:
         imageDepth: 
         shapes:[
-            shape_type: polygon | box
-            points
+            {
+                shape_type: "polygon",  # [polygon | bndbox]
+                label: str,
+                points': [(693, 224), (739, 253), ...],
+            },
+            {
+                'shape_type': "bndbox",
+                'label': 'hand', 
+                'points': [692, 254, 709, 275],  # x_min, y_min, x_max, y_max.
+            },
+            ...
         ]
 '''
 
