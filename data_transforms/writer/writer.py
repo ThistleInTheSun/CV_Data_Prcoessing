@@ -45,6 +45,9 @@ class ConcatWriter(object):
         return self.writers.__len__()
 
     def write(self, content):
+        if content is None:
+            warn("Writer warning: content is None!")
+            return
         for w in self.writers:
             w.write(content)
         return content
@@ -147,13 +150,48 @@ class XmlWriter(Writer):
 
 
 class TxtWriter(Writer):
-    def write_train_valid_txt(self):
-        train_txt = open(os.path.join(self.target_path, 'train.txt'), 'w')
-        for img_path in self.train_list:
-            train_txt.write("%s\n" % img_path)
-        train_txt.close()
+    classes_dict = {}
+    classNums = defaultdict(int)
 
-        valid_txt = open(os.path.join(self.target_path, 'valid.txt'), 'w')
-        for img_path in self.valid_list:
-            valid_txt.write("%s\n" % img_path)
-        valid_txt.close()
+    def write(self, content):
+        name = os.path.splitext(content["info"]["imageName"])[0]
+        h, w = content["info"]["imageHeight"], content["info"]["imageWidth"]
+        label_txt = open(os.path.join(self.path, name + '.txt'), 'w')
+        for obj in content["info"]["shapes"]:
+            cls_id = self._get_id(obj["label"])
+            if cls_id is None:
+                label_txt.close()
+                return
+            points = self._anno2minmax(obj, w, h)
+            label_txt.write(str(cls_id) + " " + " ".join([str(p) for p in points]) + '\n')
+        label_txt.close()
+
+    def _get_id(self, label):
+        if label not in self.classes_dict:
+            self.classes_dict[label] = len(self.classes_dict)
+        self.classNums[label] += 1
+        cls_id = self.classes_dict[label]
+        return cls_id
+
+    def _anno2minmax(self, obj, w, h):
+        p0, p1, p2, p3 = obj["points"]  # x1, y1, x2, y2
+        x_min = max(min(p0, p2), 0)
+        x_max = min(max(p0, p2), w)
+        y_min = max(min(p1, p3), 0)
+        y_max = min(max(p1, p3), h)
+        b = (float(x_min), float(x_max), float(y_min), float(y_max))
+        points = self._convert_xxyy2xywh((w, h), b)
+        return points
+
+    def _convert_xxyy2xywh(self, size, box):
+        dw = 1. / size[0]
+        dh = 1. / size[1]
+        x = (box[0] + box[1]) / 2.0
+        y = (box[2] + box[3]) / 2.0
+        w = box[1] - box[0]
+        h = box[3] - box[2]
+        x = x * dw
+        w = w * dw
+        y = y * dh
+        h = h * dh
+        return x, y, w, h
