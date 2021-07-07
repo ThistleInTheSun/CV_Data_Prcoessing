@@ -274,6 +274,7 @@ class JsonReader(Reader):
                 points = [(x, y) for x, y in obj["points"]]
             elif obj["shape_type"] in ["box", "bndbox"]:
                 points = obj["points"][0] + obj["points"][1]
+                points = [points[0], points[2], points[1], points[3]]
             else:
                 points = obj["points"]
                 warnings.warn("Unknown type {}: {}.".format(obj["shape_type"], obj["points"]))
@@ -301,9 +302,9 @@ class XmlReader(Reader):
         root_node = dom_tree.documentElement
         info["imageName"] = root_node.getElementsByTagName("filename")[0].childNodes[0].data
         size_node = root_node.getElementsByTagName("size")[0]
-        info["imageWidth"] = size_node.getElementsByTagName("width")[0].childNodes[0].data
-        info["imageHeight"] = size_node.getElementsByTagName("height")[0].childNodes[0].data
-        info["imageDepth"] = size_node.getElementsByTagName("depth")[0].childNodes[0].data
+        info["imageWidth"] = int(size_node.getElementsByTagName("width")[0].childNodes[0].data)
+        info["imageHeight"] = int(size_node.getElementsByTagName("height")[0].childNodes[0].data)
+        info["imageDepth"] = int(size_node.getElementsByTagName("depth")[0].childNodes[0].data)
 
         objects = root_node.getElementsByTagName("object")
         shapes = []
