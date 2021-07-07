@@ -167,6 +167,9 @@ class ConcatReader(object):
             sub_c_readers.append(cls(readers))
         return sub_c_readers
 
+    def __iter__(self):
+        return iter(self[i] for i in range(len(self)))
+
     def __len__(self):
         return len(self.intersection_file_name) if not self.is_recursive \
             else len(self.intersection_file_name) + sum([len(d) for d in self.sub_concat_readers])
