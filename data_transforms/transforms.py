@@ -71,6 +71,7 @@ class DataTransforms(object):
         for content in tqdm(self.reader):
             content = self.processor.process(content)
             self.writer.write(content)
+        self.writer.close()
 
 
 if __name__ == '__main__':

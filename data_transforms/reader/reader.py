@@ -113,6 +113,8 @@ class ConcatReader(object):
 
     @staticmethod
     def intersect(sequence):
+        if len(sequence) == 1:
+            return sequence[0]
         set_list = []
         for r in sequence:
             filenames = r.filenames
@@ -228,7 +230,7 @@ class VideoReader(Reader):
         return self.length // self.frameRate
 
     def __getitem__(self, item) -> T_co:
-        raise ValueError("Video can not getitem!")
+        return self.__next__()
 
     def __next__(self):
         while self.cap.isOpened():
@@ -241,6 +243,9 @@ class VideoReader(Reader):
         else:
             self.cap.release()
             return
+
+    def get_file(self, content):
+        return content
 
     def _gen_content(self, img, idx):
         name = self.video_name + str(idx).rjust(6, "0") + ".jpg"

@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 from typing import *
 from typing import TypeVar, Generic, Iterable, List
 from warnings import warn
@@ -30,8 +31,17 @@ class Writer(Generic[T_co]):
     def __add__(self, other: 'Writer[T_co]') -> 'ConcatWriter[T_co]':
         return ConcatWriter([self, other])
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     def write(self, content):
         raise NotImplementedError
+
+    def close(self):
+        pass
 
 
 class ConcatWriter(object):
@@ -52,58 +62,51 @@ class ConcatWriter(object):
             w.write(content)
         return content
 
+    def close(self):
+        for w in self.writers:
+            w.close()
+
 
 class ImageWriter(Writer):
-    def __init__(self, path: Text, *args, **kwargs):
-        super().__init__(path)
-        self.__to_close = False
-
-    def __enter__(self):
-        return self
-
     def write(self, content):
         name = content["info"]["imageName"]
         img = content["image"]
         cv2.imwrite(os.path.join(self.path, name), img)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-        return True
-
-    def close(self):
-        self.__to_close = True
 
 
 class VideoWriter(Writer):
-    def __init__(self, path: Text, *args, **kwargs):
+    def __init__(self, path: Text, video_name=None, video_fps=25, img_size=None):
         super().__init__(path)
-        self.__to_close = False
+        self.video_name = video_name if video_name else "video"
+        self.video_fps = video_fps
+        self.img_size = img_size
+        self.fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
-    def __enter__(self):
-        return self
+        self.save_path = os.path.join(self.path, self.video_name + ".mp4")
+        if self.img_size:
+            self.video = cv2.VideoWriter(self.save_path, self.fourcc, self.video_fps, self.img_size)
 
     def write(self, content):
-        name = content["info"]["imageName"]
+        if not self.img_size:
+            self.img_size = (content["info"]["imageWidth"], content["info"]["imageHeight"])
+            self.video = cv2.VideoWriter(self.save_path, self.fourcc, self.video_fps, self.img_size)
         img = content["image"]
-        cv2.imwrite(os.path.join(self.path, name), img)
+        self.video.write(img)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        self.video.release()
         return True
 
     def close(self):
-        self.__to_close = True
+        self.video.release()
 
 
 class JsonWriter(Writer):
-    def __init__(self, path):
-        self.path = path
+    def write(self, content):
+        pass
 
 
 class XmlWriter(Writer):
-    def __init__(self, path):
-        self.save_path = path
-
     def write(self, content):
         name = content["imageName"]
         prefix = name.split('.jpg')[0]
