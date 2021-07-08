@@ -11,14 +11,17 @@ class MyTestCase(unittest.TestCase):
                             'imageWidth': '1920',
                             'imageHeight': '1080',
                             'imageDepth': '3',
-                            'shapes': [{'label': 'hand', 'points': [693, 224, 739, 253], 'shape_type': 'bndbox'},
-                                       {'label': 'hand', 'points': [692, 254, 709, 275], 'shape_type': 'bndbox'},
-                                       {'label': 'hand', 'points': [1048, 564, 1087, 600], 'shape_type': 'bndbox'},
-                                       {'label': 'hand', 'points': [1145, 581, 1202, 616], 'shape_type': 'bndbox'},
-                                       {'label': 'hand', 'points': [1186, 598, 1217, 631], 'shape_type': 'bndbox'},
-                                       {'label': 'person', 'points': [1044, 390, 1334, 852], 'shape_type': 'bndbox'},
-                                       {'label': 'person', 'points': [670, 140, 783, 473], 'shape_type': 'bndbox'}]
+                            'shapes': [{'shape_type': 'bndbox', 'label': 'hand', 'points': [693, 224, 739, 253]},
+                                       {'shape_type': 'bndbox', 'label': 'hand', 'points': [692, 254, 709, 275]},
+                                       {'shape_type': 'polygon', 'label': 'hand', 'points': [(1048, 564), (1087, 600)]},
+                                       {'shape_type': 'polygon', 'label': 'hand', 'points': [(1145, 581), (1202, 616)]},
+                                       ]
                         }}
+
+    def test_XmlWriter(self):
+        from data_transforms.writer import XmlWriter
+        writer = XmlWriter("../test_imgs/outputs/")
+        writer.write(self.content)
 
     def test_TxtWriter(self):
         from data_transforms.writer import TxtWriter

@@ -108,7 +108,7 @@ class JsonWriter(Writer):
 
 class XmlWriter(Writer):
     def write(self, content):
-        name = content["imageName"]
+        name = content["info"]["imageName"]
         prefix = name.split('.jpg')[0]
         root = etree.Element("annotation")
         file_name = etree.SubElement(root, "filename")
@@ -117,9 +117,9 @@ class XmlWriter(Writer):
         url.text = ""
 
         size_node = etree.SubElement(root, "size")
-        height = content["imageHeight"]
-        width = content["imageWidth"]
-        channels = content["imageDepth"]
+        height = content["info"]["imageHeight"]
+        width = content["info"]["imageWidth"]
+        channels = content["info"]["imageDepth"]
         width_node = etree.SubElement(size_node, "width")
         height_node = etree.SubElement(size_node, "height")
         channels_node = etree.SubElement(size_node, "depth")
@@ -135,21 +135,30 @@ class XmlWriter(Writer):
 
         xml_name = prefix + ".xml"
 
-        for i in range(boxes.size(0)):
-            box = boxes[i, :]
+        for shape in content["info"]["shapes"]:
+            points = shape["points"]
             object_node = etree.SubElement(root, "object")
             status_node = etree.SubElement(object_node, "status")
             status_node.text = "person"
 
             name_node = etree.SubElement(object_node, "name")
             name_node.text = "person"
-            bndbox_node = etree.SubElement(object_node, "bndbox")
-            for i, item in enumerate(["xmin", "ymin", "xmax", "ymax"]):
-                item_node = etree.SubElement(bndbox_node, item)
-                item_node.text = str(int(box[i]))
+
+            if len(points) == 4 and not isinstance(points[0], Iterable):
+                node = etree.SubElement(object_node, "bndbox")
+                for i, item in enumerate(["xmin", "ymin", "xmax", "ymax"]):
+                    item_node = etree.SubElement(node, item)
+                    item_node.text = str(int(points[i]))
+            else:
+                node = etree.SubElement(object_node, "polygon")
+                for p in points:
+                    shape_node = etree.SubElement(node, "point")
+                    for i, item in enumerate(["x", "y"]):
+                        item_node = etree.SubElement(shape_node, item)
+                        item_node.text = str(int(p[i]))
 
         tree = etree.ElementTree(root)
-        tree.write(os.path.join(self.save_path, xml_name), pretty_print=True, encoding="utf-8")
+        tree.write(os.path.join(self.path, xml_name), pretty_print=True, encoding="utf-8")
 
 
 class TxtWriter(Writer):
