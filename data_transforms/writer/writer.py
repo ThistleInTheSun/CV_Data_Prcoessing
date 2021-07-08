@@ -88,7 +88,7 @@ class VideoWriter(Writer):
 
     def write(self, content):
         if not self.img_size:
-            self.img_size = (content["info"]["imageWidth"], content["info"]["imageHeight"])
+            self.img_size = content["image"].shape[:2][::-1]
             self.video = cv2.VideoWriter(self.save_path, self.fourcc, self.video_fps, self.img_size)
         img = content["image"]
         self.video.write(img)
