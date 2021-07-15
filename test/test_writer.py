@@ -19,12 +19,12 @@ class MyTestCase(unittest.TestCase):
                         }}
 
     def test_XmlWriter(self):
-        from data_transforms.writer import XmlWriter
+        from data_transformation.writer import XmlWriter
         writer = XmlWriter("../test_imgs/outputs/")
         writer.write(self.content)
 
     def test_TxtWriter(self):
-        from data_transforms.writer import TxtWriter
+        from data_transformation.writer import TxtWriter
         writer = TxtWriter("../test_imgs/outputs/")
         writer.write(self.content)
 

@@ -5,10 +5,10 @@
 
 from tqdm import tqdm
 
-from data_transforms.get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
-from data_transforms.processor.processor import EmptyProcess
-from data_transforms.reader.reader import ConcatReader
-from data_transforms.writer.writer import ConcatWriter
+from data_transformation.get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
+from data_transformation.processor.processor import EmptyProcess
+from data_transformation.reader.reader import ConcatReader
+from data_transformation.writer.writer import ConcatWriter
 from typing import Iterable
 
 '''
@@ -82,13 +82,18 @@ class DataTransforms(object):
 
 
 if __name__ == '__main__':
-    transforms = DataTransforms(reader_method={"image": "/home/xq/文档/projects/日联/data",
-                                               "xml": "/home/xq/文档/projects/日联/data",
+    class CropProcessor:
+        def process(self, content):
+            content["image"] = content["image"][100: 500, 200: 600]
+            return content
+
+    transforms = DataTransforms(reader_method={#"image": "../test_imgs/inputs/img_and_xml",
+                                               "video": "../test_imgs/inputs/test_video.mp4",
                                                },
-                                writer_method={"image": "/home/xq/文档/projects/日联/data_jpg",
-                                               "json": "/home/xq/文档/projects/日联/data",
+                                writer_method={#"image": "../test_imgs/outputs/img_and_xml",
+                                               "video": "../test_imgs/outputs/",
                                                },
-                                processor="crop",
+                                processor=[CropProcessor()],
                                 is_recursive=False,
                                 )
     transforms.apply()
