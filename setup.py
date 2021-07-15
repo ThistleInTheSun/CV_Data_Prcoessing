@@ -4,14 +4,14 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="data_transforms",
+    name="data_transformation",
     version="0.0.1a",
     author="AInnovation",
     author_email="xiangqing@ainnovation.com",
     description="A tool to simulate defects in industrial quality inspection",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://gitlab.ainnovation.com/manuvision",
+    url="https://gitlab.ainnovation.com/industrialvisiontang/data_transform",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3.6",
