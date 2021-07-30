@@ -36,8 +36,8 @@ class DrawProcessor(Processor):
             cv2.polylines(img, points,
                           isClosed=True, color=color, thickness=self.thickness)
         elif self.area_type == "box":
-            pt1 = tuple(points[:2])
-            pt2 = tuple(points[2:4])
+            pt1 = tuple([int(x) for x in points[:2]])
+            pt2 = tuple([int(x) for x in points[2:4]])
             cv2.rectangle(img=img, pt1=pt1, pt2=pt2,
                           color=color, thickness=self.thickness)
         img = cv2.putText(img, label, tuple(points[:2]), cv2.FONT_HERSHEY_COMPLEX,
@@ -49,8 +49,12 @@ class DrawProcessor(Processor):
             self.label_map[label] = len(self.label_map)
 
     def process(self, content):
-        img, anno = content["image"], content["anno"]
-        for obj in anno["shapes"]:
+        if not content:
+            return {}
+        img, info = content["image"], content["info"]
+        if "shapes" not in info or not info["shapes"]:
+            return content
+        for obj in info["shapes"]:
             points = obj["points"]
             label = obj["label"]
             self.join_label(label)

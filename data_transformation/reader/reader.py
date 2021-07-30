@@ -1,6 +1,7 @@
 import bisect
 import json
 import os
+import warnings
 from typing import *
 from typing import TypeVar, Generic, Iterable, List
 from xml.dom.minidom import parse
@@ -20,7 +21,7 @@ T = TypeVar('T')
 
 
 class Reader(Generic[T_co]):
-    def __init__(self, path, suffix_list=None, is_recursive=False):
+    def __init__(self, path, suffix_list=None, is_recursive=False, *args, **kwargs):
         self.path = path
         self.suffix_list = suffix_list
         self.is_recursive = is_recursive
@@ -177,10 +178,12 @@ class ConcatReader(object):
             else len(self.intersection_file_name) + sum([len(d) for d in self.sub_concat_readers])
 
     def __getitem__(self, idx):
-        content = {}
+        content = {"image": None, "info": {}}
         if idx < len(self.intersection_file_name):
             for r in self.readers:
-                content.update(r.get_file(self.intersection_file_name[idx]))
+                new_content = r.get_file(self.intersection_file_name[idx])
+                content["info"].update(new_content["info"])
+                content["image"] = new_content["image"]
             return content
         elif self.is_recursive:
             idx = idx - len(self.intersection_file_name)
@@ -293,7 +296,7 @@ class JsonReader(Reader):
             shapes.append(cur_obj)
         json_file.close()
         info["shapes"] = shapes
-        content["info"] = info
+        content = {"info": info, "image": None}
         return content
 
 
@@ -330,5 +333,5 @@ class XmlReader(Reader):
                     cur_obj["points"].append((x, y))
             shapes.append(cur_obj)
         info["shapes"] = shapes
-        content = {"info": info}
+        content = {"info": info, "image": None}
         return content
