@@ -63,13 +63,13 @@ class DataTransforms(object):
 
     def _get_processors(self, processor):
         processors = []
-        if not isinstance(processor, Iterable):
+        if not isinstance(processor, list or tuple):
             processor = [processor]
         for p in processor:
             if p is None or p in ["none", "None"]:
                 p = EmptyProcess()
-            if isinstance(processor, str):
-                p = get_p_cls(processor)()
+            if isinstance(p, str):
+                p = get_p_cls(p)()
             processors.append(p)
         return processors
 
