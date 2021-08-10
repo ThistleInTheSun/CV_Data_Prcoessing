@@ -21,15 +21,10 @@ T = TypeVar('T')
 
 
 class Reader(Generic[T_co]):
-    def __init__(self, path, suffix_list=None, is_recursive=False, *args, **kwargs):
+    def __init__(self, path, suffix_list=None, *args, **kwargs):
         self.path = path
         self.suffix_list = suffix_list
-        self.is_recursive = is_recursive
         self._filenames = None
-        self._folders = None
-        if self.is_recursive:
-            self.sub_readers = self.get_sub_reader(path)
-            self.cumulative_sizes = self.cumsum(self.sub_readers)
 
     @property
     def path(self):
@@ -48,43 +43,14 @@ class Reader(Generic[T_co]):
                                if os.path.splitext(item)[-1] in self.suffix_list]
         return self._filenames
 
-    @property
-    def folders(self):
-        if self._folders is None:
-            self._folders = [f for f in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, f))]
-        return self._folders
-
-    @staticmethod
-    def cumsum(sequence):
-        r, s = [], 0
-        for e in sequence:
-            l = len(e)
-            r.append(l + s)
-            s += l
-        return r
-
-    @classmethod
-    def get_sub_reader(cls, path):
-        return [cls(os.path.join(path, item)) for item in os.listdir(path) if os.path.isdir(os.path.join(path, item))]
-
     def __getitem__(self, item) -> T_co:
-        if item < len(self.filenames):
-            return self.get_content(self.filenames[item])
-        elif self.is_recursive:
-            idx = item - len(self.filenames)
-            reader_idx = bisect.bisect_right(self.cumulative_sizes, idx)
-            if reader_idx == 0:
-                sample_idx = idx
-            else:
-                sample_idx = idx - self.cumulative_sizes[reader_idx - 1]
-            return self.sub_readers[reader_idx][sample_idx]
+        return self.get_content(self.filenames[item])
 
     def __iter__(self):
         return iter(self[i] for i in range(len(self)))
 
     def __len__(self):
-        return len(self.filenames) if not self.is_recursive \
-            else len(self.filenames) + sum([len(d) for d in self.sub_readers])
+        return len(self.filenames)
 
     def get_name(self, item):
         return self.filenames[item]
