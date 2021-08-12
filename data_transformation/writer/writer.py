@@ -13,20 +13,17 @@ T = TypeVar('T')
 
 
 class Writer(Generic[T_co]):
-    def __init__(self, path):
-        self.path = path
+    def __init__(self, root):
+        self.root = root
+        self.update_path()
 
-    @property
-    def path(self):
-        return self._path
-
-    @path.setter
-    def path(self, path):
+    def update_path(self, ptype=""):
+        path = os.path.join(self.root, ptype)
         if not os.path.exists(path):
             os.makedirs(path)
         elif os.listdir(path):
             warn("Writer warning: {} is not empty!".format(path))
-        self._path = path
+        self.path = path
 
     def __add__(self, other: 'Writer[T_co]') -> 'ConcatWriter[T_co]':
         return ConcatWriter([self, other])
@@ -58,7 +55,9 @@ class ConcatWriter(object):
         if content is None:
             warn("Writer warning: content is None!")
             return
+        ptype = content["info"]["ptype"]
         for w in self.writers:
+            w.update_path(ptype)
             w.write(content)
         return content
 

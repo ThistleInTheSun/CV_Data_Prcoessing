@@ -21,10 +21,13 @@ T = TypeVar('T')
 
 
 class Reader(Generic[T_co]):
-    def __init__(self, path, suffix_list=None, *args, **kwargs):
-        self.path = path
+    def __init__(self, root, ptype="", suffix_list=None, *args, **kwargs):
+        self.root = root
+        self.ptype = ptype
+        self.path = os.path.join(root, ptype)
         self.suffix_list = suffix_list
         self._filenames = None
+        self._folders = None
 
     @property
     def path(self):
@@ -42,6 +45,12 @@ class Reader(Generic[T_co]):
             self._filenames = [item for item in os.listdir(self.path)
                                if os.path.splitext(item)[-1] in self.suffix_list]
         return self._filenames
+
+    @property
+    def folders(self):
+        if self._folders is None:
+            self._folders = [f for f in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, f))]
+        return self._folders
 
     def __getitem__(self, item) -> T_co:
         return self.get_content(self.filenames[item])
@@ -67,7 +76,9 @@ class Reader(Generic[T_co]):
 
     def get_file(self, name):
         name = self.autocomplete_suffix(name)
-        return self.get_content(name)
+        content = self.get_content(name)
+        content["info"]["ptype"] = self.ptype
+        return content
 
     def get_content(self, name):
         print(self.__dir__, "NotImplementedError")
@@ -105,10 +116,10 @@ class ConcatReader(object):
         super(ConcatReader, self).__init__()
         self.readers = readers
         self.is_recursive = is_recursive
-        self.intersection_file_name = self.intersect(self.readers)
+        self.intersection_file_name = self.intersect([r.filenames for r in self.readers])
         if is_recursive:
             sub_folders = self.intersect([r.folders for r in self.readers])
-            self.sub_concat_readers = self._get_sub_concat_reader(readers, sub_folders)
+            self.sub_concat_readers = self._get_sub_concat_reader(readers, sub_folders, self.is_recursive)
             self.cumulative_sizes = self.cumsum(self.sub_concat_readers)
 
     @property
@@ -129,25 +140,32 @@ class ConcatReader(object):
         self._readers = head + tail
 
     @classmethod
-    def _get_sub_concat_reader(cls, readers, sub_folders):
+    def _get_sub_concat_reader(cls, readers, sub_folders, is_recursive):
         sub_c_readers = []
         for f in sub_folders:
-            readers = [Reader(os.path.join(r.path, f)) for r in readers]
-            sub_c_readers.append(cls(readers))
+            sub_readers = [globals()[type(r).__name__](root=r.root, ptype=os.path.join(r.ptype, f)) for r in readers]
+            sub_c_readers.append(cls(sub_readers, is_recursive))
         return sub_c_readers
 
     def __iter__(self):
         return iter(self[i] for i in range(len(self)))
 
     def __len__(self):
-        return len(self.intersection_file_name) if not self.is_recursive \
-            else len(self.intersection_file_name) + sum([len(d) for d in self.sub_concat_readers])
+        if isinstance(self.readers[0], SubVideoReader):
+            # 默认读视频时有且仅有一个video_reader
+            l = len(self.readers[0]) if not self.is_recursive \
+                else len(self.readers[0]) + sum([len(d) for d in self.sub_concat_readers])
+        else:
+            l = len(self.intersection_file_name) if not self.is_recursive \
+                else len(self.intersection_file_name) + sum([len(d) for d in self.sub_concat_readers])
+        return l
 
     def __getitem__(self, idx):
         content = {"image": None, "info": {}}
         if idx < len(self.intersection_file_name):
             for r in self.readers:
-                new_content = r.get_file(self.intersection_file_name[idx])
+                name = self.intersection_file_name[idx]
+                new_content = r.get_file(name)
                 content["info"].update(new_content["info"])
                 content["image"] = new_content["image"]
             return content
@@ -162,8 +180,8 @@ class ConcatReader(object):
 
 
 class ImageReader(Reader):
-    def __init__(self, path: Text, *args, **kwargs):
-        super(ImageReader, self).__init__(path, IMAGE_SUFFIX_LIST, *args, **kwargs)
+    def __init__(self, root: Text, ptype="", *args, **kwargs):
+        super(ImageReader, self).__init__(root, ptype, IMAGE_SUFFIX_LIST, *args, **kwargs)
 
     def get_content(self, name):
         name = self.autocomplete_suffix(name)
@@ -229,16 +247,14 @@ class VideoReader(Reader):
 
 
 class JsonReader(Reader):
-    def __init__(self, path, *args, **kwargs):
-        super(JsonReader, self).__init__(path, JSON_SUFFIX_LIST, *args, **kwargs)
+    def __init__(self, root, ptype="", *args, **kwargs):
+        super(JsonReader, self).__init__(root, ptype, JSON_SUFFIX_LIST, *args, **kwargs)
 
     def get_content(self, json_name):
-        content = {}
         info = {}
         json_file = open(os.path.join(self.path, json_name))
         json_cont = json.load(json_file)
         info["imageData"] = json_cont["imageData"]
-        info["imageName"] = json_cont["imagePath"]
         info["imageWidth"] = json_cont["imageWidth"]
         info["imageHeight"] = json_cont["imageHeight"]
         info["imageDepth"] = json_cont["imageDepth"] if "imageDepth" in json_cont else None
@@ -267,14 +283,13 @@ class JsonReader(Reader):
 
 
 class XmlReader(Reader):
-    def __init__(self, path, *args, **kwargs):
-        super(XmlReader, self).__init__(path, XML_SUFFIX_LIST, *args, **kwargs)
+    def __init__(self, root, ptype="", *args, **kwargs):
+        super(XmlReader, self).__init__(root, ptype, XML_SUFFIX_LIST, *args, **kwargs)
 
     def get_content(self, xml_name):
         info = {}
         dom_tree = parse(os.path.join(self.path, xml_name))
         root_node = dom_tree.documentElement
-        info["imageName"] = root_node.getElementsByTagName("filename")[0].childNodes[0].data
         size_node = root_node.getElementsByTagName("size")[0]
         info["imageWidth"] = int(size_node.getElementsByTagName("width")[0].childNodes[0].data)
         info["imageHeight"] = int(size_node.getElementsByTagName("height")[0].childNodes[0].data)
