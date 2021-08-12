@@ -1,4 +1,5 @@
 import os
+import random
 from collections import defaultdict
 from typing import *
 from typing import TypeVar, Generic, Iterable, List
@@ -7,7 +8,8 @@ from warnings import warn
 import cv2
 from lxml import etree
 
-__all__ = ["Writer", "ConcatWriter", "ImageWriter", "VideoWriter", "JsonWriter", "XmlWriter", "TxtWriter"]
+__all__ = ["Writer", "ConcatWriter", "ImageWriter", "VideoWriter",
+           "JsonWriter", "XmlWriter", "TxtWriter", "NameWriter"]
 T_co = TypeVar('T_co', covariant=True)
 T = TypeVar('T')
 
@@ -206,3 +208,33 @@ class TxtWriter(Writer):
         y = y * dh
         h = h * dh
         return x, y, w, h
+
+
+class NameWriter(Writer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.train_txt = open(os.path.join(self.root, 'train.txt'), 'w')
+        self.val_txt = open(os.path.join(self.root, 'val.txt'), 'w')
+        self.test_txt = open(os.path.join(self.root, 'test.txt'), 'w')
+        self.train_rate = 0.8
+        self.val_rate = (1 - self.train_rate) / 2
+        self.test_rate = 1 - self.train_rate - self.val_rate
+
+    def write(self, content):
+        info = content["info"]
+        line = os.path.join(info["ptype"], info["imageName"])
+        ran = random.random()
+        if ran <= self.train_rate:
+            self.train_txt.write(line + '\n')
+        elif ran <= self.train_rate + self.val_rate:
+            self.val_txt.write(line + '\n')
+        else:
+            self.test_txt.write(line + '\n')
+
+    def close(self):
+        self.train_txt.close()
+        self.val_txt.close()
+        self.test_txt.close()
+
+
+

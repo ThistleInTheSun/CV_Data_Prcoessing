@@ -9,7 +9,8 @@ import warnings
 
 import cv2
 
-__all__ = ["Reader", "ConcatReader", "ImageReader", "VideoReader", "JsonReader", "XmlReader"]
+__all__ = ["Reader", "ConcatReader", "ImageReader", "VideoReader", "SubVideoReader",
+           "JsonReader", "XmlReader", "NameReader"]
 
 IMAGE_SUFFIX_LIST = [".jpg", ".png", ".bmp", ".jpeg", ".tiff"]
 VIDEO_SUFFIX_LIST = [".mp4", ".avi"]
@@ -314,5 +315,16 @@ class XmlReader(Reader):
                     cur_obj["points"].append((x, y))
             shapes.append(cur_obj)
         info["shapes"] = shapes
+        content = {"info": info, "image": None}
+        return content
+
+
+class NameReader(Reader):
+    def __init__(self, root, ptype="", *args, **kwargs):
+        super(NameReader, self).__init__(root, ptype, IMAGE_SUFFIX_LIST, *args, **kwargs)
+
+    def get_content(self, name):
+        info = {}
+        info["imageName"] = name
         content = {"info": info, "image": None}
         return content
