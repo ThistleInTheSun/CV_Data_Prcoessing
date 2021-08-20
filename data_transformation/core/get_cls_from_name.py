@@ -14,7 +14,7 @@ def get_cls(obj_name, r_or_w, *args, **kwargs):
     and it is case-insensitive.
     """
     obj_name = obj_name + "_" + r_or_w
-    modellib = importlib.import_module("data_transformation." + r_or_w)
+    modellib = importlib.import_module("data_transformation.core." + r_or_w)
     model = None
     target_obj_name = obj_name.replace('_', '')
     for name, cls in modellib.__dict__.items():

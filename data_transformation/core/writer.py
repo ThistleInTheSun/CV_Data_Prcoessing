@@ -23,8 +23,8 @@ class Writer(Generic[T_co]):
         path = os.path.join(self.root, ptype)
         if not os.path.exists(path):
             os.makedirs(path)
-        elif os.listdir(path):
-            warn("Writer warning: {} is not empty!".format(path))
+        # elif os.listdir(path):
+        #     warn("Writer warning: {} is not empty!".format(path))
         self.path = path
 
     def __add__(self, other: 'Writer[T_co]') -> 'ConcatWriter[T_co]':
@@ -78,18 +78,22 @@ class ImageWriter(Writer):
 class VideoWriter(Writer):
     def __init__(self, path: Text, video_name=None, video_fps=25, img_size=None):
         super().__init__(path)
-        self.video_name = video_name if video_name else "video"
+        self.video_name = video_name
         self.video_fps = video_fps
         self.img_size = img_size
         self.fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
-        self.save_path = os.path.join(self.path, self.video_name + ".mp4")
-        if self.img_size:
+        if self.img_size and self.video_name:
+            self.save_path = os.path.join(self.path, self.video_name + ".mp4")
             self.video = cv2.VideoWriter(self.save_path, self.fourcc, self.video_fps, self.img_size)
 
     def write(self, content):
+        if not content or "image" not in content:
+            return {}
         if not self.img_size:
             self.img_size = content["image"].shape[:2][::-1]
+            name = os.path.splitext(content["info"]["imageName"])[0].rsplit("_", 1)[0]
+            self.save_path = os.path.join(self.path, name + ".mp4")
             self.video = cv2.VideoWriter(self.save_path, self.fourcc, self.video_fps, self.img_size)
         img = content["image"]
         self.video.write(img)
@@ -222,6 +226,10 @@ class NameWriter(Writer):
 
     def write(self, content):
         info = content["info"]
+        if "info" not in content \
+                or "imageName" not in content["info"] \
+                or not content["info"]["imageName"]:
+            return
         line = os.path.join(info["ptype"], info["imageName"])
         ran = random.random()
         if ran <= self.train_rate:
@@ -235,6 +243,3 @@ class NameWriter(Writer):
         self.train_txt.close()
         self.val_txt.close()
         self.test_txt.close()
-
-
-

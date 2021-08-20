@@ -5,11 +5,10 @@
 
 from tqdm import tqdm
 
-from data_transformation.get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
-from data_transformation.processor.processor import EmptyProcess
-from data_transformation.reader.reader import ConcatReader
-from data_transformation.writer.writer import ConcatWriter
-from typing import Iterable
+from data_transformation.core.get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
+from data_transformation.core.processor import EmptyProcess
+from data_transformation.core.reader import ConcatReader
+from data_transformation.core.writer import ConcatWriter
 
 '''
 content:
@@ -40,6 +39,8 @@ class DataTransforms(object):
                  reader_method, writer_method,
                  processor=None, is_recursive=False,
                  ):
+        print("reading:", reader_method)
+        print("writing:", writer_method)
         self.is_recursive = is_recursive
         self.reader = self._get_reader(reader_method)
         self.writer = self._get_writer(writer_method)
@@ -87,13 +88,12 @@ if __name__ == '__main__':
             content["image"] = content["image"][100: 500, 200: 600]
             return content
 
-    transforms = DataTransforms(reader_method={#"image": "../test_imgs/inputs/img_and_xml",
-                                               "video": "../test_imgs/inputs/test_video.mp4",
+    transforms = DataTransforms(reader_method={"name": "../test_imgs/inputs",
+                                               # "json": "../test_imgs/inputs/img_and_json",
                                                },
-                                writer_method={#"image": "../test_imgs/outputs/img_and_xml",
-                                               "video": "../test_imgs/outputs/",
+                                writer_method={"name": "../test_imgs/outputs/",
                                                },
-                                processor=[CropProcessor()],
-                                is_recursive=False,
+                                processor=None,
+                                is_recursive=True,
                                 )
     transforms.apply()
