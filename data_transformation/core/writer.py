@@ -72,6 +72,8 @@ class ImageWriter(Writer):
     def write(self, content):
         name = content["info"]["imageName"]
         img = content["image"]
+        if img is None:
+            return
         cv2.imwrite(os.path.join(self.path, name), img)
 
 

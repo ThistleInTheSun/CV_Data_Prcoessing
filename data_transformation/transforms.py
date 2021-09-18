@@ -56,10 +56,16 @@ class DataTransforms(object):
 
     def _get_writer(self, writer_method):
         writers = []
-        for wm, wp in writer_method.items():
-            if isinstance(wm, str):
-                wm = get_w_cls(wm)
-            writers.append(wm(wp))
+        if isinstance(writer_method, dict):
+            for wm, wp in writer_method.items():
+                if isinstance(wm, str):
+                    wm = get_w_cls(wm)
+                writers.append(wm(wp))
+        elif isinstance(writer_method, list):
+            for wm in writer_method:
+                writers.append(wm)
+        else:
+            writers.append(writer_method)
         return ConcatWriter(writers)
 
     def _get_processors(self, processor):
