@@ -52,6 +52,8 @@ class DrawProcessor(Processor):
         if not content:
             return {}
         img, info = content["image"], content["info"]
+        # print(content)
+        # print("shapes" not in info, info["shapes"])
         if "shapes" not in info or not info["shapes"]:
             return content
         for obj in info["shapes"]:

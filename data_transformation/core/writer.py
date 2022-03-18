@@ -12,19 +12,18 @@ __all__ = ["Writer", "ConcatWriter", "ImageWriter", "VideoWriter",
            "JsonWriter", "XmlWriter", "TxtWriter", "NameWriter"]
 T_co = TypeVar('T_co', covariant=True)
 T = TypeVar('T')
-
+VIDEO_SUFFIX_LIST = [".mp4", ".avi"]
 
 class Writer(Generic[T_co]):
     def __init__(self, root):
         self.root = root
+        self.pre_ptype = ""
         self.update_path()
 
-    def update_path(self, ptype=""):
+    def update_path(self, ptype="", *args, **kwargs):
         path = os.path.join(self.root, ptype)
         if not os.path.exists(path):
-            os.makedirs(path)
-        # elif os.listdir(path):
-        #     warn("Writer warning: {} is not empty!".format(path))
+            os.makedirs(path, exist_ok=True)
         self.path = path
 
     def __add__(self, other: 'Writer[T_co]') -> 'ConcatWriter[T_co]':
@@ -59,7 +58,7 @@ class ConcatWriter(object):
             return
         ptype = content["info"]["ptype"]
         for w in self.writers:
-            w.update_path(ptype)
+            w.update_path(ptype, content)
             w.write(content)
         return content
 
@@ -70,7 +69,7 @@ class ConcatWriter(object):
 
 class ImageWriter(Writer):
     def write(self, content):
-        name = content["info"]["imageName"]
+        name = content["info"]["imageName"] + ".jpg"
         img = content["image"]
         if img is None:
             return
@@ -78,25 +77,41 @@ class ImageWriter(Writer):
 
 
 class VideoWriter(Writer):
-    def __init__(self, path: Text, video_name=None, video_fps=25, img_size=None):
-        super().__init__(path)
+    def __init__(self, root: Text, video_name=None, video_fps=25, img_size=None):
+        super().__init__(root)
         self.video_name = video_name
         self.video_fps = video_fps
         self.img_size = img_size
         self.fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        self._status = False
+        # self._open()
 
+    def _open(self):
+        self._status = True
         if self.img_size and self.video_name:
-            self.save_path = os.path.join(self.path, self.video_name + ".mp4")
+            self.save_path = os.path.join(self.root, self.ptype, self.video_name)
             self.video = cv2.VideoWriter(self.save_path, self.fourcc, self.video_fps, self.img_size)
+
+    def update_path(self, ptype_mp4="", content=None):
+        if self.pre_ptype == ptype_mp4:
+            return
+        self.pre_ptype = ptype_mp4
+        if ptype_mp4.endswith(tuple(VIDEO_SUFFIX_LIST)):
+            if self._status:
+                self.close()
+            self.ptype, self.video_name = os.path.split(ptype_mp4)
+            self.img_size = (content["info"]["imageWidth"], content["info"]["imageHeight"])
+
+        self.path = os.path.join(self.root, self.ptype)
+        if not os.path.exists(self.path):
+            os.makedirs(self.path, exist_ok=True)
+
+        if ptype_mp4.endswith(tuple(VIDEO_SUFFIX_LIST)):
+            self._open()
 
     def write(self, content):
         if not content or "image" not in content:
             return {}
-        if not self.img_size:
-            self.img_size = content["image"].shape[:2][::-1]
-            name = os.path.splitext(content["info"]["imageName"])[0].rsplit("_", 1)[0]
-            self.save_path = os.path.join(self.path, name + ".mp4")
-            self.video = cv2.VideoWriter(self.save_path, self.fourcc, self.video_fps, self.img_size)
         img = content["image"]
         self.video.write(img)
 
@@ -105,6 +120,7 @@ class VideoWriter(Writer):
         return True
 
     def close(self):
+        self._status = False
         self.video.release()
 
 
@@ -173,6 +189,7 @@ class TxtWriter(Writer):
     classNums = defaultdict(int)
 
     def write(self, content):
+        # print(content)
         name = os.path.splitext(content["info"]["imageName"])[0]
         h, w = content["info"]["imageHeight"], content["info"]["imageWidth"]
         label_txt = open(os.path.join(self.path, name + '.txt'), 'w')
@@ -214,6 +231,12 @@ class TxtWriter(Writer):
         y = y * dh
         h = h * dh
         return x, y, w, h
+
+    def __del__(self):
+        print("label in txt: ")
+        print(self.classes_dict)
+        print("label num:")
+        print(self.classNums)
 
 
 class NameWriter(Writer):

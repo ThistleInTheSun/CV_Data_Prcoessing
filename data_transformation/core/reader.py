@@ -152,13 +152,8 @@ class ConcatReader(object):
         return iter(self[i] for i in range(len(self)))
 
     def __len__(self):
-        if isinstance(self.readers[0], SubVideoReader):
-            # 默认读视频时有且仅有一个video_reader
-            l = len(self.readers[0]) if not self.is_recursive \
-                else len(self.readers[0]) + sum([len(d) for d in self.sub_concat_readers])
-        else:
-            l = len(self.intersection_file_name) if not self.is_recursive \
-                else len(self.intersection_file_name) + sum([len(d) for d in self.sub_concat_readers])
+        l = len(self.intersection_file_name) if not self.is_recursive \
+            else len(self.intersection_file_name) + sum([len(d) for d in self.sub_concat_readers])
         return l
 
     def __getitem__(self, idx):
@@ -168,6 +163,8 @@ class ConcatReader(object):
                 name = self.intersection_file_name[idx]
                 new_content = r.get_file(name)
                 content["info"].update(new_content["info"])
+                content["info"]["imageName"] = os.path.splitext(name)[0]
+                content["info"]["name_suffix"] = os.path.splitext(name)[1]
                 content["image"] = new_content["image"]
             return content
         elif self.is_recursive:
@@ -225,15 +222,20 @@ class ImageReader(Reader):
 
 
 class VideoReader(Reader):
-    def __init__(self, path: Text, ptype="", *args, **kwargs):
-        if path.endswith(tuple(VIDEO_SUFFIX_LIST)):
-            self.sub_readers = [SubVideoReader(path, *args, **kwargs)]
+    def __init__(self, root: Text, ptype="", *args, **kwargs):
+        self.root = root
+        self.ptype = ptype
+        self.path = os.path.join(self.root, ptype) if ptype else self.root
+        if root.endswith(tuple(VIDEO_SUFFIX_LIST)):
+            self.sub_readers = [SubVideoReader(root, ptype, *args, **kwargs)]
+            self.cumulative_sizes = self.cumsum(self.sub_readers)
         else:
-            super(VideoReader, self).__init__(path, VIDEO_SUFFIX_LIST, *args, **kwargs)
-            self.sub_readers = self.get_sub_reader(path, **kwargs)
+            super(VideoReader, self).__init__(root, ptype, VIDEO_SUFFIX_LIST, *args, **kwargs)
+            self.sub_readers = self.get_sub_reader(root, ptype, **kwargs)
             self.cumulative_sizes = self.cumsum(self.sub_readers)
         self.idx = 0
         self.pre_reader_idx = 0
+        self._filenames = None
 
     @staticmethod
     def cumsum(sequence):
@@ -257,7 +259,9 @@ class VideoReader(Reader):
     @property
     def filenames(self):
         if self._filenames is None:
-            self._filenames = [item for item in self.sub_readers]
+            self._filenames = []
+            for sub_r in self.sub_readers:
+                self._filenames += sub_r.filenames
         return self._filenames
 
     @property
@@ -266,8 +270,8 @@ class VideoReader(Reader):
             self._folders = [f for f in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, f))]
         return self._folders
 
-    def get_sub_reader(self, path, **kwargs):
-        return [SubVideoReader(os.path.join(self.path, item), **kwargs) for item in os.listdir(self.path)
+    def get_sub_reader(self, path, ptype, **kwargs):
+        return [SubVideoReader(self.root, os.path.join(self.ptype, item), **kwargs) for item in os.listdir(self.path)
                 if os.path.splitext(item)[-1] in self.suffix_list]
 
     def __iter__(self):
@@ -296,24 +300,29 @@ class VideoReader(Reader):
 
 
 class SubVideoReader(Reader):
-    def __init__(self, path: Text, frame_rate=1, *args, **kwargs):
-        super(SubVideoReader, self).__init__(path, VIDEO_SUFFIX_LIST, *args, **kwargs)
+    def __init__(self, root: Text, ptype="", frame_rate=1, *args, **kwargs):
+        self.root = root
+        self.ptype = ptype
+        self.path = os.path.join(root, ptype) if ptype else root
+        self.suffix_list = VIDEO_SUFFIX_LIST
+
         self.frameRate = frame_rate
 
-        self.video_name = os.path.splitext(os.path.split(path)[1])[0]
+        self.video_name = os.path.splitext(os.path.split(self.path)[1])[0]
         self.idx = 0
-        self.cap = cv2.VideoCapture(path)
+        self.cap = cv2.VideoCapture(self.path)
         self.length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
 
         self.frameRate = 3
+        self._filenames = None
 
     @property
     def filenames(self):
         if self._filenames is None:
-            self._filenames = [0] * self.__len__()
+            self._filenames = [self.video_name + "_" + str(i).rjust(6, "0") + ".jpg" for i in range(self.__len__())]
         return self._filenames
 
     def __iter__(self):
@@ -353,7 +362,8 @@ class SubVideoReader(Reader):
                    "info": {"imageName": name,
                             "imageWidth": self.width,
                             "imageHeight": self.height,
-                            "imageDepth": 3 if len(img.shape) > 2 and img.shape[2] == 3 else 1
+                            "imageDepth": 3 if len(img.shape) > 2 and img.shape[2] == 3 else 1,
+                            "ptype": self.ptype
                             }
                    }
         return content
@@ -436,7 +446,6 @@ class NameReader(Reader):
         super(NameReader, self).__init__(root, ptype, IMAGE_SUFFIX_LIST, *args, **kwargs)
 
     def get_content(self, name):
-        info = {}
-        info["imageName"] = name
+        info = {"imageName": name}
         content = {"info": info, "image": None}
         return content

@@ -8,7 +8,7 @@ setuptools.setup(
     version="0.0.2",
     author="AInnovation",
     author_email="xiangqing@ainnovation.com",
-    description="A tool to simulate defects in industrial quality inspection",
+    description="A tool to process image data.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://gitlab.ainnovation.com/industrialvisiontang/data_transform",
