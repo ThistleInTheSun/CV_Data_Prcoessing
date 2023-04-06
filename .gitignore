@@ -145,12 +145,8 @@ cython_debug/
 # IntelliJ project files
 .idea/
 *.iml
-out
-gen
-*.png
-*.jpg
-
-src/
 
 test.py
 test_imgs/*
+
+tmp*

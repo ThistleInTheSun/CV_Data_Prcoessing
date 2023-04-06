@@ -1,4 +1,4 @@
-![img](docs/image-3O6yHBhnq-transformed.png)
+![img](docs/logo.png)
 
 ## 简介
 CVData是一个cv领域的数据处理工具箱，可以对图像进行预标注等数据转换功能。目前主要用来做数据预标注和自定义数据格式转换。目前支持的预标注功能有：
