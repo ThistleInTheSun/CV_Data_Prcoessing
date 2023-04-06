@@ -5,10 +5,10 @@
 
 from tqdm import tqdm
 
-from data_transformation.core.get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
-from data_transformation.core.processor import EmptyProcess
-from data_transformation.core.reader import ConcatReader
-from data_transformation.core.writer import ConcatWriter
+from cvdata.core.get_cls_from_name import get_r_cls, get_w_cls, get_p_cls
+from cvdata.core.processor import EmptyProcess
+from cvdata.core.reader import ConcatReader
+from cvdata.core.writer import ConcatWriter
 
 '''
 content:

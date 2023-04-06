@@ -9,7 +9,7 @@ class TestReader(unittest.TestCase):
     #     print(d)
 
     def test_content_reader(self):
-        from data_transformation.core.reader import ImageReader, ConcatReader
+        from cvdata.core.reader import ImageReader, ConcatReader
         reader1 = ImageReader("../test_imgs/inputs/")
         c_reader = ConcatReader([reader1], is_recursive=False)
         for i, content in enumerate(c_reader):
@@ -17,7 +17,7 @@ class TestReader(unittest.TestCase):
         self.assertEqual(i, 4)
 
     def test_content_is_recursive(self):
-        from data_transformation.core.reader import ImageReader, ConcatReader
+        from cvdata.core.reader import ImageReader, ConcatReader
         reader1 = ImageReader("../test_imgs/inputs/")
         c_reader = ConcatReader([reader1], is_recursive=True)
         for i, content in enumerate(c_reader):
@@ -28,14 +28,14 @@ class TestReader(unittest.TestCase):
         self.assertEqual(i, 34)
 
     def test_ImgReader(self):
-        from data_transformation.core.reader import ImageReader
+        from cvdata.core.reader import ImageReader
         reader = ImageReader("../test_imgs/inputs/")
         self.assertIn("image", reader[0])
         self.assertIn("info", reader[0])
         self.assertIn("imageName", reader[0]["info"])
 
     def test_VideoReader(self):
-        from data_transformation.core.reader import VideoReader
+        from cvdata.core.reader import VideoReader
         reader = VideoReader("../test_imgs/inputs/video.mp4")
         self.assertEqual(reader.video_name, "video")
         self.assertEqual(len(reader), 284)
@@ -46,13 +46,13 @@ class TestReader(unittest.TestCase):
             break
 
     def test_JsonReader(self):
-        from data_transformation.core.reader import JsonReader
+        from cvdata.core.reader import JsonReader
         reader = JsonReader("../test_imgs/inputs/img_and_json")
         self.assertIn("info", reader[0])
         self.assertIn("shapes", reader[0]["info"])
 
     def test_XmlReader(self):
-        from data_transformation.core.reader import XmlReader
+        from cvdata.core.reader import XmlReader
         reader = XmlReader("../test_imgs/inputs/img_and_xml")
         self.assertIn("info", reader[0])
         self.assertIn("shapes", reader[0]["info"])

@@ -19,18 +19,18 @@ class MyTestCase(unittest.TestCase):
                         }}
 
     def test_ImageWriter(self):
-        from data_transformation.writer import ImageWriter
+        from cvdata.writer import ImageWriter
         writer = ImageWriter("../test_imgs/outputs/")
         writer.update_path("test_sub")
         writer.write(self.content)
 
     def test_XmlWriter(self):
-        from data_transformation.writer import XmlWriter
+        from cvdata.writer import XmlWriter
         writer = XmlWriter("../test_imgs/outputs/")
         writer.write(self.content)
 
     def test_TxtWriter(self):
-        from data_transformation.writer import TxtWriter
+        from cvdata.writer import TxtWriter
         writer = TxtWriter("../test_imgs/outputs/")
         writer.write(self.content)
 

@@ -1,5 +1,5 @@
-from data_transformation import DataTransforms
-from data_transformation.processor import Anno2MaskProcessor
+from cvdata import DataTransforms
+from cvdata.processor import Anno2MaskProcessor
 
 '''
 content:
