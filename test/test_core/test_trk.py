@@ -1,12 +1,7 @@
 import ctypes
 
-OCSort = ctypes.cdll.LoadLibrary("cvdata/core/trk/ocsort.so")
-# from cvdata.core.trk import OCSort
+OCSort = ctypes.CDLL("cvdata/core/trk/ocsort.so")
 
 
 if __name__ == "__main__":
-    # print(OCSort)
-    # p = OCSort.OCSort()
-    # print(p)
-
-    res_int = OCSort.display()
+    OCSort.update()
