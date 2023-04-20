@@ -5,6 +5,7 @@
 #include <map>
 #include <functional>
 #include <vector>
+#include <typeinfo>
 // #include "Eigen/Dense"
 using namespace std;
 
@@ -43,23 +44,73 @@ private:
     double inertia = 0.2;
     bool use_byte = true;
 
+    double low_thresh = 0.1;
+    double high_thresh = 0.5;
+
 public:
     void init(int det_thresh) {
         this->det_thresh = det_thresh;
     };
-    void update(int det_thresh) {
-        cout << this->det_thresh << endl;
-    };
+    void update(vector<vector<double>>& dets, vector<vector<double>>& res);
+    // void test(double** dets, int m, int n);
 };
+
+
+void OCSort::update(vector<vector<double>>& dets, vector<vector<double>>& res) {
+    this->frame_count += 1; 
+
+    vector<vector<double>> dets_first; 
+    vector<vector<double>> dets_second; 
+    cout << dets.size() << endl;
+    for (auto& row : dets) {
+        cout << "in for" << endl;
+        cout << typeid(row).name() << endl;
+        for (auto& i : row) {
+            cout << i << endl;
+        }
+        // cout << row << endl;
+        cout << row.at(4) << endl;
+        if (row[4] >= this->high_thresh) {
+            cout << "in if 1" << endl;
+            dets_first.push_back(row);
+            cout << "in if 2" << endl;
+        } else if (row[4] >= this->low_thresh) {
+            dets_second.push_back(row);
+        }
+    }
+    cout << "bb3" << endl;
+}
+
+// void OCSort::test(double** dets, int* m, int* n) {
+//     cout << "in test" << endl;
+//     cout << m << "--" << n << endl;
+//     cout << dets[0][0] << m << n << endl;
+//     // for (auto& row : dets) {
+//     //     cout << "test" << endl;
+//     //     cout << "in for" << endl;
+//     //     cout << typeid(row).name() << endl;
+//     //     cout << "in for 1" << endl;
+//     //     cout << row << endl;
+//     // }
+//     cout << "bb3" << endl;
+// }
 
 extern "C" {
     OCSort obj;
 
-    void init(int output_results) {
-        obj.init(output_results);
+    void init(int dets) {
+        obj.init(dets);
     }
-    void update(int det_thresh) {
-        obj.update(det_thresh);
+    void update(vector<vector<double>>& dets, vector<vector<double>>& res) {
+        cout << "bb" << endl;
+        obj.update(dets, res);
+        cout << "cc" << endl;
+    }
+    void test(int m, int n) {
+        cout << "in extern" << endl;
+        cout << m << "--" << n << endl;
+        // obj.test(dets, m, n);
+        cout << "end extern" << endl;
     }
 }
 
