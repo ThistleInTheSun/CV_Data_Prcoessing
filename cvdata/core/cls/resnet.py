@@ -239,15 +239,57 @@ def infer(model, infer_dir):
     print("chefhat: {}, unchefhat: {}".format(n_chefhat, n_unchefhat))
 
 
+def pth2onnx(model, save_path):
+    x = torch.randn(1, 3, 128, 128)
+    torch.onnx.export(
+        model, 
+        x, 
+        save_path,
+        opset_version=10,
+        do_constant_folding=True,	# 是否执行常量折叠优化
+        input_names=["input"],	# 输入名
+        output_names=["output"],	# 输出名
+        dynamic_axes={"input":{0:"batch_size"},  # 批处理变量
+                      "output":{0:"batch_size"}}
+        )
+
+
+
+def infer_resnet_pth(model, imgsrc):
+    img = Image.fromarray(imgsrc)        
+    img = transform_test(img)
+    img = torch.unsqueeze(img, dim=0)
+    if torch.cuda.is_available():
+        img = img.to('cuda')
+    outputs = model(img)
+    _, predicted = torch.max(outputs.data, 1)
+    return predicted.item()
+
+
+def infer_resnet_onnx(onnx_session, imgsrc):
+    img = Image.fromarray(imgsrc)        
+    img = transform_test(img)
+    img = torch.unsqueeze(img, dim=0)
+    img = img.detach().cpu().numpy() if img.requires_grad else img.cpu().numpy()
+    outputs = onnx_session.run(None, {"input": img})[0]
+    outputs = np.array(outputs)
+    predicted = np.argmax(outputs, 1)
+    return predicted[0]
+
+
 if __name__ == "__main__":
-    model = init_model(cls_num=2)
-    train_A = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat"
-    train_B = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/unchefhat"
-    # if not os.path.exists(train_A + "_train.txt") or not os.path.exists(train_B + "_train.txt"):
-    split_txt(train_A, train_B)
-    train(model, train_A, train_B)
+    # model = init_model(cls_num=2)
+    # train_A = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat"
+    # train_B = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/unchefhat"
+    # # if not os.path.exists(train_A + "_train.txt") or not os.path.exists(train_B + "_train.txt"):
+    # split_txt(train_A, train_B)
+    # train(model, train_A, train_B)
 
     
-    # model = init_model("/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet_v6_94.pth", cls_num=2)
-    # infer_dir = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/cropped"
-    # infer(model, infer_dir)
+    model = init_model("/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet_v7_92.pth", cls_num=2)
+    infer_dir = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/cropped"
+    infer(model, infer_dir)
+
+    model = init_model("/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet_v7_92.pth", cls_num=2)
+    save_path = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet_v7_92.onnx"
+    pth2onnx(model, save_path)
