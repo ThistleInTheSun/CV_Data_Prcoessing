@@ -157,10 +157,8 @@ def train(model, dir_A, dir_B):
                     imgs, lbls = data
                     if torch.cuda.is_available():
                         imgs, lbls = imgs.to('cuda'), lbls.to('cuda')
-                    print(imgs.size(), torch.min(imgs), torch.max(imgs))
                     outputs = model(imgs)
                     _, predicted = torch.max(outputs.data, 1)
-                    print(predicted)
                     total += lbls.size(0)
                     correct += (predicted == lbls).sum()
                 print("[Test Acc: {}".format(100 * torch.true_divide(correct, total)))
