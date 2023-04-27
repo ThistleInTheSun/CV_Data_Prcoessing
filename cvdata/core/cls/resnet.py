@@ -2,12 +2,14 @@ import os
 import random
 
 import cv2
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from PIL import Image
 from tensorboardX import SummaryWriter
 from torchvision import transforms
+from tqdm import tqdm
 
 
 class MyData(torch.utils.data.Dataset):
@@ -38,6 +40,10 @@ class MyData(torch.utils.data.Dataset):
         for name_a, name_b in zip(A, B):
             path_a = os.path.join(dir_A, name_a)
             path_b = os.path.join(dir_B, name_b)
+            if not os.path.exists(path_a):
+                raise ValueError("not exist", path_a)
+            if not os.path.exists(path_b):
+                raise ValueError("not exist", path_b)
             img_a = cv2.imread(path_a)
             img_b = cv2.imread(path_b)
             self.data.append(img_a)
@@ -77,25 +83,36 @@ transform_test = transforms.Compose([
     transforms.Resize(128),
     transforms.RandomCrop(128),
     transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 
-def init_model():
+def init_model(checkpoint=None, cls_num=None):
     model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', weights='ResNet18_Weights.IMAGENET1K_V1')
     # model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet34', pretrained=True)
     # model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet50', pretrained=True)
     # model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet101', pretrained=True)
     # model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet152', pretrained=True)
+    if cls_num:
+        model.fc = torch.nn.Linear(in_features=model.fc.in_features, out_features=cls_num)
+    if checkpoint:
+        state_dict = torch.load(checkpoint)
+        model.load_state_dict(state_dict['model'])
     if torch.cuda.is_available():
         model.to('cuda')
-    print(model)
+    # for k, v in model.named_parameters():
+    #     print(k)
+    #     if k.startswith("fc"):
+    #         v.requires_grad = True
+    #     else:
+    #         v.requires_grad = False
+    # print(model.fc)
     return model
 
 
 def train(model, dir_A, dir_B):
-    LR = 0.01
-    EPOCH = 100
+    LR = 0.001
+    EPOCH = 40
     last = 0
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=LR, momentum=0.9, weight_decay=5e-4)
@@ -130,18 +147,20 @@ def train(model, dir_A, dir_B):
             print("[epoch:{}, iter:{}] Loss:{} | Acc: {}".format(epoch+1, i+1+epoch, sum_loss/(i + 1), 100 * correct / total))
 
 
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 2 == 0:
+            model.eval()
             print("waiting Test...")
             with torch.no_grad():
                 correct = 0
                 total = 0
                 for data in test_loader:
-                    model.eval()
                     imgs, lbls = data
                     if torch.cuda.is_available():
                         imgs, lbls = imgs.to('cuda'), lbls.to('cuda')
+                    print(imgs.size(), torch.min(imgs), torch.max(imgs))
                     outputs = model(imgs)
                     _, predicted = torch.max(outputs.data, 1)
+                    print(predicted)
                     total += lbls.size(0)
                     correct += (predicted == lbls).sum()
                 print("[Test Acc: {}".format(100 * torch.true_divide(correct, total)))
@@ -191,17 +210,46 @@ def split_txt(dir_A, dir_B):
 
     save_txt(train_a, train_b, "train")
     save_txt(test_a, test_b, "test")
-    
+
+
+def infer(model, infer_dir):
+    model.eval()
+    os.makedirs(infer_dir + "_0", exist_ok=True)
+    os.makedirs(infer_dir + "_1", exist_ok=True)
+    n_chefhat, n_unchefhat = 0, 0
+    for img_name in tqdm(sorted(os.listdir(infer_dir))):
+        img_path = os.path.join(infer_dir, img_name)
+        imgsrc = cv2.imread(img_path)
+        img = Image.fromarray(imgsrc)        
+        img = transform_test(img)
+        img = torch.unsqueeze(img, dim=0)
+        if torch.cuda.is_available():
+            img = img.to('cuda')
+        # print(img.size(), torch.min(img), torch.max(img))
+        outputs = model(img)
+        _, predicted = torch.max(outputs.data, 1)
+        # print(outputs)
+        if predicted.item() == 0:
+            n_chefhat += 1
+            save_path = os.path.join(infer_dir + "_0", img_name)
+        elif predicted.item() == 1:
+            n_unchefhat += 1
+            save_path = os.path.join(infer_dir + "_1", img_name)
+        else:
+            print("output is", predicted.item())
+        cv2.imwrite(save_path, imgsrc)
+    print("chefhat: {}, unchefhat: {}".format(n_chefhat, n_unchefhat))
 
 
 if __name__ == "__main__":
-    model = init_model()
-    # print(model)
-    # train_A = "/home/qing.xiang/algorithm/SophonAlgoNN/train/chefhat"
-    # train_B = "/home/qing.xiang/algorithm/SophonAlgoNN/train/unchefhat"
+    model = init_model(cls_num=2)
     train_A = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat"
     train_B = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/unchefhat"
-    
-    if not os.path.exists(train_A + "_train.txt") or not os.path.exists(train_B + "_train.txt"):
-        split_txt(train_A, train_B)
+    # if not os.path.exists(train_A + "_train.txt") or not os.path.exists(train_B + "_train.txt"):
+    split_txt(train_A, train_B)
     train(model, train_A, train_B)
+
+    
+    # model = init_model("/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet_v6_94.pth", cls_num=2)
+    # infer_dir = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/cropped"
+    # infer(model, infer_dir)
