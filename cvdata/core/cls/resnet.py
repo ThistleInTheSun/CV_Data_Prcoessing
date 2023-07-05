@@ -11,6 +11,7 @@ from tensorboardX import SummaryWriter
 from torchvision import transforms
 from tqdm import tqdm
 
+SIZE = 256
 
 class MyData(torch.utils.data.Dataset):
     def __init__(self, dir_A, dir_B, train=True, transform=None, target_transform=None):
@@ -72,16 +73,16 @@ class MyData(torch.utils.data.Dataset):
 
 
 transform_train = transforms.Compose([
-    transforms.Resize(128),
-    transforms.RandomCrop(128),
+    transforms.Resize(SIZE),
+    transforms.RandomCrop(SIZE),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
 transform_test = transforms.Compose([
-    transforms.Resize(128),
-    transforms.RandomCrop(128),
+    transforms.Resize(SIZE),
+    transforms.RandomCrop(SIZE),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
@@ -110,9 +111,8 @@ def init_model(checkpoint=None, cls_num=None):
     return model
 
 
-def train(model, dir_A, dir_B):
+def train(model, dir_A, dir_B, epoch=40, batch_size=128):
     LR = 0.001
-    EPOCH = 40
     last = 0
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=LR, momentum=0.9, weight_decay=5e-4)
@@ -121,10 +121,10 @@ def train(model, dir_A, dir_B):
     
     trainset = MyData(dir_A, dir_B, train=True, transform=transform_train)
     testset = MyData(dir_A, dir_B, train=False, transform=transform_test)
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=1024, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=1024, shuffle=False)
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
 
-    for epoch in range(EPOCH):
+    for epoch in range(epoch):
         model.train()
         sum_loss = 0
         correct = 0
@@ -214,7 +214,7 @@ def infer(model, infer_dir):
     model.eval()
     os.makedirs(infer_dir + "_0", exist_ok=True)
     os.makedirs(infer_dir + "_1", exist_ok=True)
-    n_chefhat, n_unchefhat = 0, 0
+    n_cls_0, n_cls_1 = 0, 0
     for img_name in tqdm(sorted(os.listdir(infer_dir))):
         img_path = os.path.join(infer_dir, img_name)
         imgsrc = cv2.imread(img_path)
@@ -228,19 +228,19 @@ def infer(model, infer_dir):
         _, predicted = torch.max(outputs.data, 1)
         # print(outputs)
         if predicted.item() == 0:
-            n_chefhat += 1
+            n_cls_0 += 1
             save_path = os.path.join(infer_dir + "_0", img_name)
         elif predicted.item() == 1:
-            n_unchefhat += 1
+            n_cls_1 += 1
             save_path = os.path.join(infer_dir + "_1", img_name)
         else:
             print("output is", predicted.item())
         cv2.imwrite(save_path, imgsrc)
-    print("chefhat: {}, unchefhat: {}".format(n_chefhat, n_unchefhat))
+    print("0: {}, 1: {}".format(n_cls_0, n_cls_1))
 
 
 def pth2onnx(model, save_path):
-    x = torch.randn(1, 3, 128, 128)
+    x = torch.randn(1, 3, SIZE, SIZE)
     torch.onnx.export(
         model, 
         x, 
@@ -279,17 +279,23 @@ def infer_resnet_onnx(onnx_session, imgsrc):
 
 if __name__ == "__main__":
     # model = init_model(cls_num=2)
-    # train_A = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat"
-    # train_B = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/unchefhat"
+    # # train_A = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/nude/cropped_shirtless"
+    # # train_B = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/nude/cropped_noshirtless"
+    # train_A = "/dataset/user/xq/resnet/chefhat/cropped_chefhat"
+    # train_B = "/dataset/user/xq/resnet/chefhat/cropped_nochefhat"
+    
     # # if not os.path.exists(train_A + "_train.txt") or not os.path.exists(train_B + "_train.txt"):
     # split_txt(train_A, train_B)
-    # train(model, train_A, train_B)
+    # # global SIZE
+    # SIZE = 128
+    # train(model, train_A, train_B, epoch=100, batch_size=128)
 
     
-    model = init_model("/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet_v7_92.pth", cls_num=2)
-    infer_dir = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/cropped"
-    infer(model, infer_dir)
+    # model = init_model("/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet/chefhat_resnet_v7_92.pth", cls_num=2)
+    # infer_dir = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet/cropped"
+    # infer(model, infer_dir)
 
-    model = init_model("/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet_v7_92.pth", cls_num=2)
-    save_path = "/home/sdb1/xq/algorithm/SophonAlgoNN/data/chefhat_resnet_v7_92.onnx"
+    model = init_model("/dataset/user/xq/resnet/chefhat/cropped_chefhat_resnet_result98.pth", cls_num=2)
+    model.to('cpu')
+    save_path = "/dataset/user/xq/resnet/chefhat/chefhat_resnet.onnx"
     pth2onnx(model, save_path)

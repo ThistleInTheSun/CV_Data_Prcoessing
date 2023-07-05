@@ -106,9 +106,17 @@ extern "C" {
         obj.update(dets, res);
         cout << "cc" << endl;
     }
-    void test(int m, int n) {
+    void test(double** dets, int m, int n) {
         cout << "in extern" << endl;
-        cout << m << "--" << n << endl;
+        cout << m << ", " << n << endl;
+        cout << dets << endl;
+        cout << dets[0][0] << endl;
+
+        for (int i = 0; i < m; i++) { 
+            for (int j = 0; j < n; j++) { 
+                cout << dets[i][j] << endl;
+            }
+        }
         // obj.test(dets, m, n);
         cout << "end extern" << endl;
     }
