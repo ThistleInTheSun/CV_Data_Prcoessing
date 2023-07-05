@@ -1,25 +1,37 @@
 import os
+import time
 
 import evaluate
 import numpy as np
 import torch
 from datasets import load_dataset, load_metric
 from torch import nn
+from torch.autograd import Variable
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import (GPT2ForSequenceClassification, GPT2Tokenizer,
                           TrainingArguments, get_scheduler)
 
-# os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+model_name = "gpt2-medium"
+data_name = "sst2"
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3,4,5,6,7'
 
-batch = 32
-device_ids = [x for x in range(4)]
-local_rank = "cuda:" + ",".join([str(x) for x in range(4)])
+batch_size = 8
+save_project = "./work/{}-{}".format(model_name, data_name)
+val_each_step = 500
+num_epochs = 200
+resume = True
 
-dataset = load_dataset("sst2")
-# dataset = load_dataset("yelp_review_full")
-# print(dataset)
+
+if resume:
+    print("resume from:", resume)
+    model = GPT2ForSequenceClassification.from_pretrained(save_project + "_last")
+    print("load done")
+else:
+    model = GPT2ForSequenceClassification.from_pretrained(model_name, num_labels=2)
+
+dataset = load_dataset(data_name)
 
 tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 tokenizer.pad_token = tokenizer.eos_token
@@ -41,84 +53,82 @@ for data in tokenized_datasets["validation"][:5]:
 small_train_dataset = tokenized_datasets["train"].shuffle(seed=42)
 small_eval_dataset = tokenized_datasets["validation"].shuffle(seed=42)
 
-train_dataloader = DataLoader(small_train_dataset, shuffle=True, batch_size=16)
-eval_dataloader = DataLoader(small_eval_dataset, batch_size=16)
+train_dataloader = DataLoader(small_train_dataset, shuffle=True, batch_size=batch_size)
+eval_dataloader = DataLoader(small_eval_dataset, batch_size=batch_size)
 
 
 
-# model = AutoModelForSequenceClassification.from_pretrained("gpt2", num_labels=2)
-model = GPT2ForSequenceClassification.from_pretrained("gpt2", num_labels=2)
 for name, param in model.named_parameters():
     if name.startswith("transformer"):
         param.requires_grad = False
-    # print(name, param.requires_grad)
 
 model.config.pad_token_id = model.config.eos_token_id
-# print("gpu:", print(local_rank))
-# # torch.cuda.set_device(local_rank)
-# # torch.distributed.init_process_group(backend='nccl')
-# model = nn.DataParallel(model, device_ids)
-model = model.cuda()  # 在使用DistributedDataParallel之前，需要先将模型放到GPU上
-# model = nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-# print(model)
+if torch.cuda.is_available():
+    model = model.cuda()
+if torch.cuda.device_count() > 1:
+    print("use device:", torch.cuda.device_count(), "GPUs!")
+    model = nn.DataParallel(model)
+
 
 
 training_args = TrainingArguments(output_dir="test_trainer")
 optimizer = AdamW(model.parameters(), lr=5e-5)
 
-num_epochs = 3
 num_training_steps = num_epochs * len(train_dataloader)
 lr_scheduler = get_scheduler(
     name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
 )
 
 metric= load_metric("accuracy")
-# progress_bar = tqdm(range(num_training_steps), desc="train")
 best_acc = 0
-val_each_step = 20
 step = 0
+save_list = ["epoch loss acc time"]
+txt_path = os.path.join(save_project, "loss.txt")
+with open(txt_path, "a") as f:
+    if resume:
+        f.write("\nresume from {}\n".format(resume))
+    f.write("epoch loss acc time\n")
+os.makedirs(save_project, exist_ok=True)
+last_time = time.time()
+
 for epoch in range(num_epochs):
+    # train
     model.train()
     for batch in tqdm(train_dataloader, desc="train"):
-        batch = {k: v.to(device) for k, v in batch.items()}
+        batch = {k: Variable(v.cuda()) for k, v in batch.items()}
         outputs = model(**batch)
         loss = outputs.loss
-        loss.backward()
+        loss.sum().backward()
         optimizer.step()
         lr_scheduler.step()
         optimizer.zero_grad()
-        # progress_bar.update(1)
         step += 1
 
+        # val
         if step % val_each_step != 0:
             continue
         model.eval()
         for batch in tqdm(eval_dataloader, desc="val:"):
-            batch = {k: v.to(device) for k, v in batch.items()}
+            batch = {k: Variable(v.cuda()) for k, v in batch.items()}
             with torch.no_grad():
                 outputs = model(**batch)
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)
             metric.add_batch(predictions=predictions, references=batch["labels"])
         res = metric.compute()
-        print("epoch:", epoch, "loss:", loss, "acc:", res["accuracy"])
+
+        # save
+        time_each_step = (time.time() - last_time) / val_each_step
+        last_time = time.time()
+        print("epoch:", epoch, "loss:", loss.sum().item(), "acc:", res["accuracy"], 
+              "time each step:", time_each_step, "\n")
+        save_list.append([epoch, loss.sum().item(), res["accuracy"], time_each_step])
         if res["accuracy"] > best_acc:
-            torch.save(model, 'best.pt')
-torch.save(model, 'last.pt')
-
-
-
-# model.eval()
-# for batch in eval_dataloader:
-#     batch = {k: v.to(device) for k, v in batch.items()}
-#     with torch.no_grad():
-#         outputs = model(**batch)
-
-#     logits = outputs.logits
-#     predictions = torch.argmax(logits, dim=-1)
-#     metric.add_batch(predictions=predictions, references=batch["labels"])
-
-# metric.compute()
-
-
+            model.save_pretrained(save_project + "_best")
+        with open(txt_path, "a") as f:
+            line  = save_list[-1]
+            line = " ".join([str(x) for x in line])
+            if not line.endswith("\n"):
+                line = line + "\n"
+            f.write(line)
+        model.save_pretrained(save_project + "_last")
