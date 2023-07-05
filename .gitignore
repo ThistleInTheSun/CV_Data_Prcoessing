@@ -150,3 +150,6 @@ test.py
 test_imgs/*
 
 tmp*
+
+test
+.vscode
