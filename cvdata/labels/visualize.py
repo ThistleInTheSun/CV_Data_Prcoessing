@@ -14,14 +14,12 @@ def get_color(idx):
     return color
 
 
-def plot_tracking(image, res, frame_id=0, fps=0.):
-    img = image
-    text_scale = 2
-    text_thickness = 2
-    line_thickness = 3
+def plot_tracking(img, res, frame_id=0, fps=0., draw_frame=False, color=None, line_thickness=2, text_thickness=2):
+    text_scale = 1
 
-    cv2.putText(img, 'frame: %d fps: %.2f num: %d' % (frame_id, fps, len(res)),
-                (0, int(15 * text_scale)), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), thickness=2)
+    if draw_frame:
+        cv2.putText(img, 'frame: %d fps: %.2f num: %d' % (frame_id, fps, len(res)),
+                    (0, int(15 * text_scale)), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), thickness=2)
 
     for i, info in enumerate(res):
         intbox = tuple(map(int, info["bbox"]))
@@ -29,12 +27,17 @@ def plot_tracking(image, res, frame_id=0, fps=0.):
             obj_id = int(info["track_id"])
         else:
             obj_id = -1
-        id_text = '{}'.format(int(obj_id))
+        id_text = ""
+        if "label" in info:
+            id_text = id_text + '{}, '.format(str(info["label"]))
+        if obj_id != -1:
+            id_text = id_text + '{}, '.format(int(obj_id))
         if "attribute" in info:
             id_text = id_text + ', {}'.format(str(info["attribute"]))
-        color = get_color(abs(obj_id))
+        if not color:
+            color = get_color(abs(obj_id))
         cv2.rectangle(img, intbox[0:2], intbox[2:4], color=color, thickness=line_thickness)
-        cv2.putText(img, id_text, (intbox[0], intbox[1]), cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 0, 255),
+        cv2.putText(img, id_text, (intbox[0], intbox[1]), cv2.FONT_HERSHEY_PLAIN, text_scale, color,
                     thickness=text_thickness)
     return img
 

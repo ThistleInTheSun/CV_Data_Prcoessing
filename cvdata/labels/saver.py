@@ -6,6 +6,16 @@ import cv2
 from cvdata.labels.visualize import plot_tracking
 
 
+def save_txt(path, lines):
+    if not path.endswith("txt"):
+        path = path + ".txt"
+    with open(path, "w") as f:
+        for line in lines:
+            if not line.endswith("\n"):
+                line = line + "\n"
+            f.write(line)
+
+
 class JsonSaver():
     def __init__(self, save_dir) -> None:
         self.save_dir = save_dir
