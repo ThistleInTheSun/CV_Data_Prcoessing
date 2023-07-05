@@ -24,53 +24,56 @@ num_epochs = 200
 resume = True
 
 
-if resume:
-    print("resume from:", resume)
-    model = GPT2ForSequenceClassification.from_pretrained(save_project + "_last")
-    print("load done")
-else:
-    model = GPT2ForSequenceClassification.from_pretrained(model_name, num_labels=2)
+def get_data():
+    dataset = load_dataset(data_name)
 
-dataset = load_dataset(data_name)
+    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    tokenizer.pad_token = tokenizer.eos_token
+    print(tokenizer)
 
-tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-tokenizer.pad_token = tokenizer.eos_token
-print(tokenizer)
+    def tokenize_function(examples):
+        return tokenizer(examples["sentence"], padding="max_length", truncation=True)
 
-def tokenize_function(examples):
-    return tokenizer(examples["sentence"], padding="max_length", truncation=True)
+    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+    # print("after map:", tokenized_datasets)
+    tokenized_datasets = tokenized_datasets.remove_columns(["idx"])
+    tokenized_datasets = tokenized_datasets.remove_columns(["sentence"])
+    tokenized_datasets = tokenized_datasets.rename_column("label", "labels")
+    tokenized_datasets.set_format("torch")
+    # print("after rm:", tokenized_datasets)
+    for data in tokenized_datasets["validation"][:5]:
+        print(data)
 
-tokenized_datasets = dataset.map(tokenize_function, batched=True)
-# print("after map:", tokenized_datasets)
-tokenized_datasets = tokenized_datasets.remove_columns(["idx"])
-tokenized_datasets = tokenized_datasets.remove_columns(["sentence"])
-tokenized_datasets = tokenized_datasets.rename_column("label", "labels")
-tokenized_datasets.set_format("torch")
-# print("after rm:", tokenized_datasets)
-for data in tokenized_datasets["validation"][:5]:
-    print(data)
+    small_train_dataset = tokenized_datasets["train"].shuffle(seed=42)
+    small_eval_dataset = tokenized_datasets["validation"].shuffle(seed=42)
 
-small_train_dataset = tokenized_datasets["train"].shuffle(seed=42)
-small_eval_dataset = tokenized_datasets["validation"].shuffle(seed=42)
-
-train_dataloader = DataLoader(small_train_dataset, shuffle=True, batch_size=batch_size)
-eval_dataloader = DataLoader(small_eval_dataset, batch_size=batch_size)
+    train_dataloader = DataLoader(small_train_dataset, shuffle=True, batch_size=batch_size)
+    eval_dataloader = DataLoader(small_eval_dataset, batch_size=batch_size)
+    return train_dataloader, eval_dataloader
 
 
+def get_model():
+    if resume:
+        print("resume from:", resume)
+        model = GPT2ForSequenceClassification.from_pretrained(save_project + "_last")
+    else:
+        model = GPT2ForSequenceClassification.from_pretrained(model_name, num_labels=2)
 
-for name, param in model.named_parameters():
-    if name.startswith("transformer"):
-        param.requires_grad = False
+    for name, param in model.named_parameters():
+        if name.startswith("transformer"):
+            param.requires_grad = False
 
-model.config.pad_token_id = model.config.eos_token_id
-if torch.cuda.is_available():
-    model = model.cuda()
-if torch.cuda.device_count() > 1:
-    print("use device:", torch.cuda.device_count(), "GPUs!")
-    model = nn.DataParallel(model)
+    model.config.pad_token_id = model.config.eos_token_id
+    if torch.cuda.is_available():
+        model = model.cuda()
+    if torch.cuda.device_count() > 1:
+        print("use device:", torch.cuda.device_count(), "GPUs!")
+        model = nn.DataParallel(model)
+    return model
 
 
-
+model = get_model()
+train_dataloader, eval_dataloader = get_data()
 training_args = TrainingArguments(output_dir="test_trainer")
 optimizer = AdamW(model.parameters(), lr=5e-5)
 
@@ -98,7 +101,7 @@ for epoch in range(num_epochs):
         batch = {k: Variable(v.cuda()) for k, v in batch.items()}
         outputs = model(**batch)
         loss = outputs.loss
-        loss.sum().backward()
+        loss.mean().backward()
         optimizer.step()
         lr_scheduler.step()
         optimizer.zero_grad()
@@ -120,15 +123,15 @@ for epoch in range(num_epochs):
         # save
         time_each_step = (time.time() - last_time) / val_each_step
         last_time = time.time()
-        print("epoch:", epoch, "loss:", loss.sum().item(), "acc:", res["accuracy"], 
+        print("epoch:", epoch, "loss:", loss.mean().item(), "acc:", res["accuracy"], 
               "time each step:", time_each_step, "\n")
-        save_list.append([epoch, loss.sum().item(), res["accuracy"], time_each_step])
+        save_list.append([epoch, loss.mean().item(), res["accuracy"], time_each_step])
         if res["accuracy"] > best_acc:
-            model.save_pretrained(save_project + "_best")
+            model.module.save_pretrained(save_project + "_best")
         with open(txt_path, "a") as f:
             line  = save_list[-1]
             line = " ".join([str(x) for x in line])
             if not line.endswith("\n"):
                 line = line + "\n"
             f.write(line)
-        model.save_pretrained(save_project + "_last")
+        model.module.save_pretrained(save_project + "_last")
